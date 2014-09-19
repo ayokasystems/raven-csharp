@@ -30,8 +30,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 using Newtonsoft.Json;
 
@@ -151,6 +154,22 @@ namespace SharpRaven
         }
 
 
+        private static bool ValidateRemoteCertificate(object sender,
+                                                      X509Certificate certificate,
+                                                      X509Chain chain,
+                                                      SslPolicyErrors policyErrors)
+        {
+            if (Convert.ToBoolean(ConfigurationManager.AppSettings["IgnoreSslErrors"]))
+            {
+                return true;
+            }
+            else
+            {
+                return policyErrors == SslPolicyErrors.None;
+            }
+        }
+
+
         /// <summary>
         /// Sends the specified packet to Sentry.
         /// </summary>
@@ -170,6 +189,10 @@ namespace SharpRaven
                 request.Accept = "application/json";
                 request.Headers.Add("X-Sentry-Auth", PacketBuilder.CreateAuthenticationHeader(dsn));
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3;
+                
+                // Added to disable self signed certificate
+                ServicePointManager.ServerCertificateValidationCallback += new RemoteCertificateValidationCallback(ValidateRemoteCertificate);
+
                 request.UserAgent = PacketBuilder.UserAgent;
 
                 if (Compression)
